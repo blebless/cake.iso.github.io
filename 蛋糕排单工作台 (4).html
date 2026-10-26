@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>木小姐甜品烘焙 排单工作台</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍰</text></svg>">
+    <script src="https://fastly.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+        }
+        body {
+            background: #FBF6F0;
+            color: #332B25;
+            line-height: 1.6;
+            padding-bottom: 100px;
+        }
+        .header {
+            padding: 20px 16px;
+            background: #fff;
+            border-bottom: 1px solid #F0E6DC;
+        }
+        .header h1 {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        .header .date {
+            font-size: 14px;
+            color: #8C7B6E;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            padding: 16px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .stat-card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 14px 10px;
+            text-align: center;
+        }
+        .stat-num {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 2px;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #8C7B6E;
+        }
+        .stat-total .stat-num { color: #E88B5A; }
+        .stat-pending .stat-num { color: #F5A623; }
+        .stat-making .stat-num { color: #5B9BD5; }
+        .stat-done .stat-num { color: #7ED321; }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 16px;
+        }
+        .add-order-btn {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #E88B5A;
+            color: #fff;
+            border: none;
+            border-radius: 28px;
+            padding: 14px 32px;
+            font-size: 16px;
+            font-weight: 500;
+            box-shadow: 0 4px 16px rgba(232,139,90,0.3);
+            cursor: pointer;
+            z-index: 10;
+        }
+        .add-order-form {
+            background: #fff;
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        .add-order-form.show {
+            display: block;
+        }
+        .form-item {
+            margin-bottom: 14px;
+        }
+        .form-item label {
+            display: block;
+            font-size: 14px;
+            color: #5D4F45;
+            margin-bottom: 6px;
+        }
+        .form-item input, .form-item textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #EAE0D5;
+            border-radius: 8px;
+            font-size: 16px;
+            background: #FDFAF7;
+        }
+        .form-item textarea {
+            resize: vertical;
+            min-height: 60px;
+        }
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 18px;
+        }
+        .btn-primary {
+            flex: 1;
+            background: #E88B5A;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 15px;
+            cursor: pointer;
+        }
+        .btn-secondary {
+            flex: 1;
+            background: #F0E6DC;
+            color: #5D4F45;
+            border: none;
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 15px;
+            cursor: pointer;
+        }
+        .order-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .order-card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 16px;
+            border-left: 4px solid #E88B5A;
+        }
+        .order-card.status-pending { border-left-color: #F5A623; }
+        .order-card.status-making { border-left-color: #5B9BD5; }
+        .order-card.status-ready { border-left-color: #7ED321; }
+        .order-card.status-done { border-left-color: #BDBDBD; opacity: 0.7; }
+        .order-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .order-time {
+            font-size: 16px;
+            font-weight: 600;
+            color: #E88B5A;
+        }
+        .order-status {
+            font-size: 12px;
+            padding: 4px 10px;
+            border-radius: 12px;
+            cursor: pointer;
+            border: none;
+        }
+        .status-pending .order-status { background: #FFF4E0; color: #D4880F; }
+        .status-making .order-status { background: #E8F2FC; color: #2D73B8; }
+        .status-ready .order-status { background: #EDF9E3; color: #54A00F; }
+        .status-done .order-status { background: #F5F5F5; color: #757575; }
+        .order-content {
+            font-size: 15px;
+            margin-bottom: 6px;
+        }
+        .order-note {
+            font-size: 13px;
+            color: #8C7B6E;
+            background: #FDF8F3;
+            padding: 8px 10px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+        }
+        .order-actions {
+            text-align: right;
+        }
+        .delete-btn {
+            font-size: 13px;
+            color: #C95A4A;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #A89789;
+            font-size: 14px;
+        }
+        .print-btn {
+            font-size: 13px;
+            color: #E88B5A;
+            background: #FFF3EB;
+            border: none;
+            border-radius: 6px;
+            padding: 4px 10px;
+            margin-right: 8px;
+            cursor: pointer;
+        }
+        .delivery-tag {
+            font-size: 12px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            margin-left: 6px;
+        }
+        .pickup-tag { background: #EDF9E3; color: #54A00F; }
+        .delivery-tag-bg { background: #E8F2FC; color: #2D73B8; }
+        .receipt-container {
+            display: none;
+        }
+        .calendar-wrap {
+            background: #fff;
+            padding: 12px 16px;
+            border-bottom: 1px solid #F0E6DC;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            font-size: 15px;
+            font-weight: 600;
+        }
+        .month-switch-btn {
+            background: #FDF8F3;
+            border: none;
+            border-radius: 6px;
+            padding: 4px 12px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .week-row {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            text-align: center;
+            font-size: 12px;
+            color: #8C7B6E;
+            margin-bottom: 6px;
+        }
+        .date-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px;
+        }
+        .date-cell {
+            aspect-ratio: 1;
+            border-radius: 8px;
+            background: #FDF8F3;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            cursor: pointer;
+            position: relative;
+        }
+        .date-cell.active {
+            background: #E88B5A;
+            color: #fff;
+        }
+        .date-cell .dot {
+            position: absolute;
+            bottom: 4px;
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: #E85A4A;
+        }
+        .edit-btn {
+            font-size: 13px;
+            color: #5B9BD5;
+            background: #E8F2FC;
+            border: none;
+            border-radius: 6px;
+            padding: 4px 10px;
+            margin-right: 8px;
+            cursor: pointer;
+        }
+        .image-preview-mask {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.8);
+            z-index: 100;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .image-preview-mask.show {
+            display: flex;
+        }
+        .preview-content {
+            background: #fff;
+            border-radius: 12px;
+            padding: 16px;
+            max-width: 320px;
+            width: 100%;
+        }
+        .preview-content img {
+            width: 100%;
+            border-radius: 8px;
+            margin-bottom: 12px;
+        }
+        .preview-actions {
+            display: flex;
+            gap: 10px;
+        }
+        .receipt-box {
+            background: #fff;
+            padding: 30px;
+            width: 500px;
+            font-family: sans-serif;
+            font-size: 22px;
+            line-height: 1.8;
+            color: #000;
+            font-weight: 500;
+            position: fixed;
+            top: 0;
+            left: 0;
+            opacity: 0;
+            pointer-events: none;
+        }
+        @media (min-width: 768px) {
+            .order-list {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .add-order-btn {
+                left: auto;
+                right: 32px;
+                transform: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>木小姐甜品烘焙</h1>
+        <div class="date" id="todayDate"></div>
+    </div>
+    <div style="max-width:1200px; margin:12px auto; padding:0 16px;">
+        <div style="background:#fff7ed; border:1px solid #fed7aa; border-radius:12px; padding:14px;">
+            <div style="font-size:14px; font-weight:600; color:#ea580c; margin-bottom:8px;">智能识别粘贴板</div>
+            <textarea id="rawOrderText" style="width:100%; min-height:80px; padding:10px; border:1px solid #fdba74; border-radius:8px; font-size:16px; background:#fff;" placeholder="直接粘贴客户发的订单消息/地址文本，点下面按钮自动识别填入表单"></textarea>
+            <button style="width:100%; margin-top:8px; background:#ea580c; color:#fff; border:none; border-radius:8px; padding:10px; font-size:15px; cursor:pointer;" onclick="parseRawText()">一键识别并填入表单</button>
+        </div>
+    </div>
+    <div class="calendar-wrap">
+        <div class="calendar-header">
+            <button class="month-switch-btn" onclick="changeMonth(-1)">‹ 上月</button>
+            <span id="currentMonthLabel"></span>
+            <button class="month-switch-btn" onclick="changeMonth(1)">下月 ›</button>
+        </div>
+        <div class="week-row">
+            <span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span>
+        </div>
+        <div class="date-grid" id="dateGrid"></div>
+    </div>
+    <div class="stats">
+        <div class="stat-card stat-total">
+            <div class="stat-num" id="totalCount">0</div>
+            <div class="stat-label">当日总单</div>
+        </div>
+        <div class="stat-card stat-pending">
+            <div class="stat-num" id="pendingCount">0</div>
+            <div class="stat-label">待制作</div>
+        </div>
+        <div class="stat-card stat-making">
+            <div class="stat-num" id="makingCount">0</div>
+            <div class="stat-label">制作中</div>
+        </div>
+        <div class="stat-card stat-done">
+            <div class="stat-num" id="doneCount">0</div>
+            <div class="stat-label">已完成</div>
+        </div>
+    </div>
+    <div class="image-preview-mask" id="previewMask">
+        <div class="preview-content" style="max-width: 450px;">
+            <img id="previewImg" alt="订单小票" style="width:100%; border-radius:8px; margin-bottom:8px;">
+            <div style="font-size:12px; color:#8C7B6E; text-align:center; margin-bottom:12px;">长按图片也可以直接保存到手机相册</div>
+            <div class="preview-actions" style="flex-direction: column; gap:8px;">
+                <button class="btn-primary" onclick="saveImage()">保存图片</button>
+                <button class="btn-secondary" onclick="window.print()">打印小票</button>
+                <button class="btn-secondary" onclick="closePreview()">关闭</button>
+            </div>
+        </div>
+    </div>
+    <div class="image-preview-mask" id="imageViewerMask" style="background:rgba(0,0,0,0.9);">
+        <div style="position:relative; max-width:90vw; max-height:90vh;">
+            <img id="viewerImg" style="max-width:100%; max-height:80vh; border-radius:8px;" alt="蛋糕参考图">
+            <div style="position:absolute; top:50%; left:-50px; transform:translateY(-50%); background:#fff; border:none; border-radius:50%; width:40px; height:40px; font-size:20px; cursor:pointer;" onclick="switchImage(-1)">‹</div>
+            <div style="position:absolute; top:50%; right:-50px; transform:translateY(-50%); background:#fff; border:none; border-radius:50%; width:40px; height:40px; font-size:20px; cursor:pointer;" onclick="switchImage(1)">›</div>
+            <div style="position:absolute; bottom:20px; left:50%; transform:translateX(-50%); color:#fff; font-size:14px;" id="viewerIndexText"></div>
+            <button style="position:absolute; top:-40px; right:0; background:#fff; border:none; border-radius:8px; padding:6px 16px; cursor:pointer;" onclick="closeImageViewer()">关闭</button>
+        </div>
+    </div>
+    <div class="receipt-box" id="receiptBox" style="position:absolute; left:-9999px; top:-9999px;"></div>
+    <div class="container">
+        <div class="add-order-form" id="addForm">
+            <h3 style="margin-bottom:16px; font-size:17px;">新增订单</h3>
+            <div class="form-item">
+                <label>客户称呼</label>
+                <input type="text" id="customerName" placeholder="例：张小姐">
+            </div>
+            <div class="form-item">
+                <label>联系电话</label>
+                <input type="tel" id="customerPhone" placeholder="例：138xxxx1234">
+            </div>
+            <div class="form-item">
+                <label>蛋糕款式</label>
+                <input type="text" id="cakeType" placeholder="例：水果奶油/裸蛋糕">
+            </div>
+            <div class="form-item">
+                <label>尺寸</label>
+                <input type="text" id="cakeSize" placeholder="例：6寸/8寸">
+            </div>
+            <div class="form-item">
+                <label>夹心口味</label>
+                <input type="text" id="cakeFilling" placeholder="例：芒果/草莓/奥利奥">
+            </div>
+            <div class="form-item">
+                <label>奶油类型</label>
+                <input type="text" id="cakeCream" placeholder="例：动物奶油/植脂奶油">
+            </div>
+            <div class="form-item">
+                <label>取货/配送时间</label>
+                <input type="datetime-local" id="pickupTime">
+            </div>
+            <div class="form-item">
+                <label>交付方式</label>
+                <div style="display:flex; gap:16px; padding:8px 0;">
+                    <label style="display:flex; align-items:center; gap:4px; font-size:15px; color:#333;">
+                        <input type="radio" name="deliveryType" value="自提" checked onchange="toggleAddress()"> 到店自提
+                    </label>
+                    <label style="display:flex; align-items:center; gap:4px; font-size:15px; color:#333;">
+                        <input type="radio" name="deliveryType" value="配送" onchange="toggleAddress()"> 外卖配送
+                    </label>
+                </div>
+            </div>
+            <div class="form-item" id="addressBox" style="display:none;">
+                <label>配送地址</label>
+                <textarea id="orderAddress" placeholder="例：香洲区xx小区x栋x单元"></textarea>
+            </div>
+            <div class="form-item">
+                <label>蛋糕祝福语（写在蛋糕上的字）</label>
+                <input type="text" id="orderBlessing" placeholder="例：生日快乐">
+            </div>
+            <div class="form-item">
+                <label>蛋糕参考图（可选，可多选）</label>
+                <input type="file" id="orderImages" accept="image/*" multiple onchange="handleImageUpload(this)">
+            </div>
+            <div class="form-item">
+                <label>特殊备注（忌口/其他要求）</label>
+                <textarea id="orderNote" placeholder="例：不要芒果、少糖"></textarea>
+            </div>
+            <div class="form-actions">
+                <button class="btn-secondary" onclick="toggleForm()">取消</button>
+                <button class="btn-primary" onclick="addOrder()">保存订单</button>
+            </div>
+        </div>
+        <div class="order-list" id="orderList"></div>
+        <div class="empty-state" id="emptyState">今天还没有订单，点下方按钮添加第一单</div>
+    </div>
+    <button class="add-order-btn" onclick="toggleForm()">+ 新增订单</button>
+    <div class="receipt-container" id="receiptBox"></div>
+
+    <script>
+        const STATUS_MAP = [
+            {key: 'pending', label: '待制作', class: 'status-pending'},
+            {key: 'making', label: '制作中', class: 'status-making'},
+            {key: 'ready', label: '待取货', class: 'status-ready'},
+            {key: 'done', label: '已完成', class: 'status-done'}
+        ];
+        let orders = JSON.parse(localStorage.getItem('cakeOrders') || '[]');
+        let selectedDate = '';
+        let currentYear = new Date().getFullYear();
+        let currentMonth = new Date().getMonth();
+        let editingOrderId = null;
+        let currentImgUrl = '';
+        let orderImages = [];
+        let currentViewImages = [];
+        let currentViewIndex = 0;
+        function handleImageUpload(input) {
+            const files = Array.from(input.files);
+            files.forEach(file => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        const scale = 300 / Math.max(img.width, img.height);
+                        canvas.width = img.width * scale;
+                        canvas.height = img.height * scale;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        orderImages.push(canvas.toDataURL('image/jpeg', 0.7));
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+        function openImageViewer(images, index=0) {
+            currentViewImages = images;
+            currentViewIndex = index;
+            showCurrentImage();
+            document.getElementById('imageViewerMask').classList.add('show');
+        }
+        function showCurrentImage() {
+            document.getElementById('viewerImg').src = currentViewImages[currentViewIndex];
+            document.getElementById('viewerIndexText').textContent = `${currentViewIndex+1} / ${currentViewImages.length}`;
+        }
+        function switchImage(delta) {
+            currentViewIndex = (currentViewIndex + delta + currentViewImages.length) % currentViewImages.length;
+            showCurrentImage();
+        }
+        function closeImageViewer() {
+            document.getElementById('imageViewerMask').classList.remove('show');
+        }
+        function toggleAddress() {
+            const deliveryType = document.querySelector('input[name="deliveryType"]:checked').value;
+            document.getElementById('addressBox').style.display = deliveryType === '配送' ? 'block' : 'none';
+        }
+        function parseRawText() {
+            const text = document.getElementById('rawOrderText').value.trim();
+            if(!text) { alert('请先粘贴客户的订单文本'); return; }
+            let parsed = {
+                customer: '',
+                phone: '',
+                address: '',
+                cakeType: '',
+                cakeSize: '',
+                filling: '',
+                cream: '',
+                blessing: '',
+                note: '',
+                deliveryType: '自提'
+            };
+            // 识别手机号
+            const phoneMatch = text.match(/1[3-9]\d{9}/);
+            if(phoneMatch) parsed.phone = phoneMatch[0];
+            // 识别尺寸
+            const sizeMatch = text.match(/(\d+)\s*寸/);
+            if(sizeMatch) parsed.cakeSize = sizeMatch[1];
+            // 识别交付方式
+            if(text.includes('配送') || text.includes('送过来') || text.includes('送到') || text.includes('外卖') || text.includes('送货')) {
+                parsed.deliveryType = '配送';
+            }
+            if(text.includes('自提') || text.includes('到店拿') || text.includes('到店取')) {
+                parsed.deliveryType = '自提';
+            }
+            // 识别联系人：电话前面2-4个字，常见称呼
+            const nameMatch = text.match(/([\u4e00-\u9fa5]{2,4})(小姐|先生|女士|姐|哥)/);
+            if(nameMatch) parsed.customer = nameMatch[1] + nameMatch[2];
+            // 识别地址：找地址关键词后面的内容
+            const addrMatch = text.match(/(地址|送到|配送地址|住在).*?[:：]\s*([\u4e00-\u9fa5A-Za-z0-9号栋单元室路小区]+)/);
+            if(addrMatch) parsed.address = addrMatch[2];
+            // 识别祝福语
+            const blessMatch = text.match(/(写|祝|字|写着).*?[:：]?\s*([\u4e00-\u9fa5！！!。，,]{2,15})/);
+            if(blessMatch) parsed.blessing = blessMatch[2];
+            // 识别备注
+            const noteMatch = text.match(/(备注|忌口|不要).*?[:：]?\s*([\u4e00-\u9fa5]{2,30})/);
+            if(noteMatch) parsed.note = noteMatch[2];
+            // 识别夹心
+            const fillingMatch = text.match(/(夹心).*?[:：]?\s*([\u4e00-\u9fa5]{2,10})/);
+            if(fillingMatch) parsed.filling = fillingMatch[2];
+            // 识别奶油
+            const creamMatch = text.match(/(奶油).*?[:：]?\s*([\u4e00-\u9fa5]{2,10})/);
+            if(creamMatch) parsed.cream = creamMatch[2];
+            // 自动填入表单
+            document.getElementById('customerName').value = parsed.customer;
+            document.getElementById('customerPhone').value = parsed.phone;
+            document.getElementById('cakeSize').value = parsed.cakeSize;
+            document.getElementById('cakeFilling').value = parsed.filling;
+            document.getElementById('cakeCream').value = parsed.cream;
+            document.getElementById('orderBlessing').value = parsed.blessing;
+            document.getElementById('orderNote').value = parsed.note;
+            document.getElementById('orderAddress').value = parsed.address;
+            document.querySelector(`input[name="deliveryType"][value="${parsed.deliveryType}"]`).checked = true;
+            toggleAddress();
+            document.getElementById('addForm').classList.add('show');
+            window.scrollTo({top:0, behavior:'smooth'});
+            alert('识别完成！已自动填入识别到的信息，请手动补全没识别到的内容');
+        }
+        function formatTime(datetimeStr) {
+            if(!datetimeStr) return '';
+            const d = new Date(datetimeStr);
+            const month = d.getMonth() + 1;
+            const day = d.getDate();
+            const hour = d.getHours().toString().padStart(2, '0');
+            const minute = d.getMinutes().toString().padStart(2, '0');
+            return `${month}月${day}日 ${hour}:${minute}`;
+        }
+        function getDateStr(datetimeStr) {
+            return datetimeStr.split('T')[0];
+        }
+        function buildCalendar() {
+            document.getElementById('currentMonthLabel').textContent = `${currentYear}年${currentMonth+1}月`;
+            const grid = document.getElementById('dateGrid');
+            grid.innerHTML = '';
+            const daysInMonth = new Date(currentYear, currentMonth+1, 0).getDate();
+            const firstDayWeek = new Date(currentYear, currentMonth, 1).getDay();
+            for(let i=0; i<firstDayWeek; i++) {
+                grid.appendChild(document.createElement('div'));
+            }
+            const orderDateSet = new Set(orders.map(o => getDateStr(o.time)));
+            for(let i=1; i<=daysInMonth; i++) {
+                const dateStr = `${currentYear}-${(currentMonth+1).toString().padStart(2,'0')}-${i.toString().padStart(2,'0')}`;
+                const cell = document.createElement('div');
+                cell.className = `date-cell ${dateStr === selectedDate ? 'active' : ''}`;
+                cell.innerHTML = `${i}`;
+                if(orderDateSet.has(dateStr)) {
+                    cell.innerHTML += '<div class="dot"></div>';
+                }
+                cell.onclick = () => {
+                    selectedDate = dateStr;
+                    buildCalendar();
+                    renderOrders();
+                };
+                grid.appendChild(cell);
+            }
+        }
+        function changeMonth(delta) {
+            currentMonth += delta;
+            if(currentMonth < 0) {
+                currentMonth = 11;
+                currentYear -= 1;
+            }
+            if(currentMonth > 11) {
+                currentMonth = 0;
+                currentYear += 1;
+            }
+            buildCalendar();
+        }
+        function editOrder(orderId) {
+            const order = orders.find(o => o.id === orderId);
+            if(!order) return;
+            editingOrderId = orderId;
+            document.getElementById('customerName').value = order.customer;
+            document.getElementById('customerPhone').value = order.phone || '';
+            document.getElementById('cakeType').value = order.type;
+            document.getElementById('cakeSize').value = order.size;
+            document.getElementById('cakeFilling').value = order.filling || '';
+            document.getElementById('cakeCream').value = order.cream || '';
+            document.getElementById('pickupTime').value = order.time;
+            document.getElementById('orderBlessing').value = order.blessing || '';
+            document.getElementById('orderNote').value = order.note || '';
+            document.getElementById('orderAddress').value = order.address || '';
+            orderImages = order.images || [];
+            document.querySelector(`input[name="deliveryType"][value="${order.deliveryType}"]`).checked = true;
+            toggleAddress();
+            document.querySelector('#addForm h3').textContent = '编辑订单';
+            document.querySelector('.btn-primary').textContent = '保存修改';
+            document.getElementById('addForm').classList.add('show');
+            window.scrollTo({top:0, behavior:'smooth'});
+        }
+        async function saveImage() {
+            try {
+                const res = await fetch(currentImgUrl);
+                const blob = await res.blob();
+                const a = document.createElement('a');
+                const blobUrl = URL.createObjectURL(blob);
+                a.href = blobUrl;
+                a.download = `蛋糕订单_${new Date().getTime()}.png`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(blobUrl);
+                alert('图片已保存，可在手机相册里查看');
+            } catch(e) {
+                alert('请长按上方图片，选择保存到相册即可');
+            }
+        }
+        function closePreview() {
+            document.getElementById('previewMask').classList.remove('show');
+            document.getElementById('previewImg').style.display = 'block';
+            const fallback = document.getElementById('fallbackReceipt');
+            if(fallback) fallback.remove();
+        }
+        async function printOrder(orderId) {
+            const order = orders.find(o => o.id === orderId);
+            if(!order) return;
+            // 打开前先重置预览状态
+            document.getElementById('previewImg').style.display = 'block';
+            const oldFallback = document.getElementById('fallbackReceipt');
+            if(oldFallback) oldFallback.remove();
+            const receiptHtml = `
+                <div style="text-align:center; font-weight:bold; margin-bottom:16px; font-size:32px;">木小姐甜品烘焙</div>
+                <div style="text-align:center; font-size:20px; margin-bottom:12px;">订单小票</div>
+                <div style="border-top:2px dashed #000; margin:8px 0;"></div>
+                <div style="margin:8px 0;">时间：${formatTime(order.time)}</div>
+                <div style="margin:8px 0;">客户：${order.customer} ${order.phone || ''}</div>
+                <div style="margin:8px 0;">交付：${order.deliveryType || '自提'}</div>
+                ${order.address ? `<div style="margin:8px 0;">地址：${order.address}</div>` : ''}
+                <div style="border-top:2px dashed #000; margin:8px 0;"></div>
+                <div style="margin:8px 0;">款式：${order.type}</div>
+                <div style="margin:8px 0;">尺寸：${order.size}寸</div>
+                <div style="margin:8px 0;">夹心：${order.filling || '按常规'}</div>
+                <div style="margin:8px 0;">奶油：${order.cream || '动物奶油'}</div>
+                ${order.blessing ? `<div style="margin:8px 0; color:#E88B5A;">蛋糕字：${order.blessing}</div>` : ''}
+                ${order.note ? `<div style="border-top:2px dashed #000; margin:8px 0; margin:8px 0;">备注：${order.note}</div>` : ''}
+            `;
+            const receipt = document.getElementById('receiptBox');
+            receipt.innerHTML = receiptHtml;
+            currentImgUrl = '';
+            try {
+                await new Promise(r => setTimeout(r, 100)); // 等DOM渲染完再截图
+                const canvas = await html2canvas(receipt, {backgroundColor: '#fff', scale: 2, useCORS: true, logging: false});
+                currentImgUrl = canvas.toDataURL('image/png');
+                document.getElementById('previewImg').src = currentImgUrl;
+            } catch(e) {
+                currentImgUrl = '';
+                document.getElementById('previewImg').style.display = 'none';
+                document.querySelector('#previewMask .preview-content').insertAdjacentHTML('afterbegin', `<div id="fallbackReceipt" style="color:#000; text-align:left;">${receiptHtml}</div>`);
+            }
+            document.querySelector('.preview-actions').innerHTML = `
+                <button class="btn-primary" onclick="saveImage()" ${currentImgUrl ? '' : 'style="display:none"'}>保存图片</button>
+                <button class="btn-secondary" onclick="window.print()">打印小票</button>
+                <button class="btn-secondary" onclick="closePreview()">关闭</button>
+            `;
+            document.getElementById('previewMask').classList.add('show');
+        }
+        function initDate() {
+            const now = new Date();
+            const week = ['周日','周一','周二','周三','周四','周五','周六'][now.getDay()];
+            document.getElementById('todayDate').textContent = `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日 ${week}`;
+            if(!selectedDate) {
+                selectedDate = `${now.getFullYear()}-${(now.getMonth()+1).toString().padStart(2,'0')}-${now.getDate().toString().padStart(2,'0')}`;
+            }
+        }
+        function toggleForm() {
+            const form = document.getElementById('addForm');
+            form.classList.toggle('show');
+            if(form.classList.contains('show')) window.scrollTo({top:0, behavior:'smooth'});
+        }
+        function saveOrders() {
+            localStorage.setItem('cakeOrders', JSON.stringify(orders));
+            renderOrders();
+        }
+        function addOrder() {
+            const name = document.getElementById('customerName').value.trim();
+            const phone = document.getElementById('customerPhone').value.trim();
+            const type = document.getElementById('cakeType').value.trim();
+            const size = document.getElementById('cakeSize').value.trim();
+            const filling = document.getElementById('cakeFilling').value.trim();
+            const cream = document.getElementById('cakeCream').value.trim();
+            const time = document.getElementById('pickupTime').value;
+            const blessing = document.getElementById('orderBlessing').value.trim();
+            const note = document.getElementById('orderNote').value.trim();
+            const address = document.getElementById('orderAddress').value.trim();
+            const deliveryType = document.querySelector('input[name="deliveryType"]:checked').value;
+            if(!name || !type || !time) {
+                alert('请填写客户称呼、蛋糕款式和完整取货时间');
+                return;
+            }
+            if(editingOrderId) {
+                orders = orders.map(o => {
+                    if(o.id === editingOrderId) {
+                        return {
+                            ...o,
+                            customer: name,
+                            phone: phone,
+                            type: type,
+                            size: size,
+                            filling: filling,
+                            cream: cream,
+                            time: time,
+                            blessing: blessing,
+                            note: note,
+                            address: address,
+                            images: orderImages,
+                            deliveryType: deliveryType
+                        }
+                    }
+                    return o;
+                });
+                editingOrderId = null;
+            } else {
+                orders.push({
+                    id: Date.now(),
+                    customer: name,
+                    phone: phone,
+                    type: type,
+                    size: size,
+                    filling: filling,
+                    cream: cream,
+                    time: time,
+                    blessing: blessing,
+                    note: note,
+                    address: address,
+                    images: orderImages,
+                    deliveryType: deliveryType,
+                    status: 'pending'
+                });
+            }
+            orderImages = [];
+            document.getElementById('orderImages').value = '';
+            document.getElementById('customerName').value = '';
+            document.getElementById('customerPhone').value = '';
+            document.getElementById('cakeType').value = '';
+            document.getElementById('cakeSize').value = '';
+            document.getElementById('cakeFilling').value = '';
+            document.getElementById('cakeCream').value = '';
+            document.getElementById('pickupTime').value = '';
+            document.getElementById('orderBlessing').value = '';
+            document.getElementById('orderNote').value = '';
+            document.getElementById('orderAddress').value = '';
+            document.querySelector('#addForm h3').textContent = '新增订单';
+            document.querySelector('.btn-primary').textContent = '保存订单';
+            document.getElementById('addressBox').style.display = 'none';
+            toggleForm();
+            saveOrders();
+        }
+        function cycleStatus(id) {
+            orders = orders.map(o => {
+                if(o.id === id) {
+                    const currentIdx = STATUS_MAP.findIndex(s => s.key === o.status);
+                    const nextIdx = (currentIdx + 1) % STATUS_MAP.length;
+                    o.status = STATUS_MAP[nextIdx].key;
+                }
+                return o;
+            });
+            saveOrders();
+        }
+        function deleteOrder(id) {
+            if(confirm('确定要删除这个订单吗？')) {
+                orders = orders.filter(o => o.id !== id);
+                saveOrders();
+            }
+        }
+        function renderOrders() {
+            const dayOrders = orders.filter(o => getDateStr(o.time) === selectedDate);
+            const sorted = [...dayOrders].sort((a,b) => a.time.localeCompare(b.time));
+            const list = document.getElementById('orderList');
+            const empty = document.getElementById('emptyState');
+            list.innerHTML = '';
+            if(sorted.length === 0) {
+                empty.style.display = 'block';
+            } else {
+                empty.style.display = 'none';
+                sorted.forEach(order => {
+                    const statusInfo = STATUS_MAP.find(s => s.key === order.status);
+                    const card = document.createElement('div');
+                    card.className = `order-card ${statusInfo.class}`;
+                    const deliveryTag = order.deliveryType === '配送' 
+                        ? '<span class="delivery-tag delivery-tag-bg">配送</span>' 
+                        : '<span class="delivery-tag pickup-tag">自提</span>';
+                    card.innerHTML = `
+                        <div class="order-top">
+                            <div class="order-time">${order.time.split('T')[1]} ${deliveryTag}</div>
+                            <button class="order-status" onclick="cycleStatus(${order.id})">${statusInfo.label}</button>
+                        </div>
+                        <div class="order-content">${order.customer} ${order.phone ? '· '+order.phone : ''} · ${order.size}寸 ${order.type}</div>
+                        ${order.images && order.images.length ? `
+                            <div style="display:flex; gap:6px; flex-wrap:wrap; margin:8px 0;">
+                                ${order.images.map((img, idx) => `<img src="${img}" data-order-id="${order.id}" data-img-idx="${idx}" class="thumb-img" style="width:80px; height:80px; border-radius:6px; object-fit:cover; cursor:pointer;" alt="蛋糕参考图">`).join('')}
+                            </div>
+                        ` : ''}
+                        <div style="font-size:13px; color:#8C7B6E; margin-bottom:6px;">夹心：${order.filling || '常规'} | 奶油：${order.cream || '动物奶油'}</div>
+                        ${order.blessing ? `<div style="font-size:13px; color:#E88B5A; margin-bottom:6px;">蛋糕字：${order.blessing}</div>` : ''}
+                        ${order.address ? `<div style="font-size:13px; color:#5B9BD5; margin-bottom:6px;">配送地址：${order.address}</div>` : ''}
+                        ${order.note ? `<div class="order-note">备注：${order.note}</div>` : ''}
+                        <div class="order-actions">
+                            <button class="edit-btn" onclick="editOrder(${order.id})">编辑</button>
+                            <button class="print-btn" onclick="printOrder(${order.id})">生成小票</button>
+                            <button class="delete-btn" onclick="deleteOrder(${order.id})">删除</button>
+                        </div>
+                    `;
+                    list.appendChild(card);
+                });
+            }
+            document.getElementById('totalCount').textContent = dayOrders.length;
+            document.getElementById('pendingCount').textContent = dayOrders.filter(o => o.status === 'pending').length;
+            document.getElementById('makingCount').textContent = dayOrders.filter(o => o.status === 'making').length;
+            document.getElementById('doneCount').textContent = dayOrders.filter(o => o.status === 'done').length;
+            // 给缩略图绑点击事件
+            document.querySelectorAll('.thumb-img').forEach(img => {
+                img.onclick = () => {
+                    const orderId = parseInt(img.dataset.orderId);
+                    const imgIdx = parseInt(img.dataset.imgIdx);
+                    const order = orders.find(o => o.id === orderId);
+                    if(order && order.images) {
+                        openImageViewer(order.images, imgIdx);
+                    }
+                };
+            });
+        }
+        initDate();
+        buildCalendar();
+        renderOrders();
+    </script>
+</body>
+</html>
